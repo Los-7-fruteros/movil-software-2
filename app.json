@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "AgroMonitor",
+    "slug": "reservoir-monitor",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#EBF5FF"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.reservoirmonitor.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#EBF5FF"
+      },
+      "package": "com.reservoirmonitor.app"
+    },
+    "plugins": [
+      "expo-web-browser"
+    ],
+    "scheme": "reservoirmonitor",
+    "newArchEnabled": false,
+    "extra": {
+      "eas": {
+        "projectId": "1fbe55a1-9166-49fb-b2fb-1943ebc087d2"
+      }
+    }
+  }
+}
