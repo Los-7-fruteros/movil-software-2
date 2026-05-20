@@ -26,6 +26,7 @@ const LoginScreen = () => {
 
   const [mode, setMode] = useState('login'); // 'login' | 'register'
   const [email, setEmail] = useState('');
+  const [nombre, setNombre] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -48,6 +49,7 @@ const LoginScreen = () => {
     setMode(m);
     setErrors({});
     setEmail('');
+    setNombre('');
     setPassword('');
     setConfirmPass('');
   };
@@ -57,9 +59,10 @@ const LoginScreen = () => {
     const passErr = validatePassword(password);
     const confirmErr = mode === 'register' && password !== confirmPass
       ? 'Las contraseñas no coinciden.' : '';
+    const nombreErr = mode === 'register' && !nombre.trim() ? 'El nombre es obligatorio.' : '';
 
-    if (emailErr || passErr || confirmErr) {
-      setErrors({ email: emailErr, password: passErr, confirm: confirmErr });
+    if (emailErr || passErr || confirmErr || nombreErr) {
+      setErrors({ email: emailErr, password: passErr, confirm: confirmErr, nombre: nombreErr });
       return;
     }
 
@@ -68,10 +71,10 @@ const LoginScreen = () => {
       if (mode === 'login') {
         await signIn(email.trim(), password);
       } else {
-        await signUp(email.trim(), password);
+        await signUp(email.trim(), password, nombre.trim());
         Alert.alert(
           '✅ Cuenta creada',
-          'Revisa tu correo para confirmar tu cuenta y luego inicia sesión.',
+          'Tu cuenta fue creada. Ahora puedes iniciar sesión.',
           [{ text: 'OK', onPress: () => switchMode('login') }]
         );
       }
@@ -162,6 +165,30 @@ const LoginScreen = () => {
                 </View>
                 {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
               </View>
+
+              {/* Nombre (solo registro) */}
+              {!isLogin ? (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Nombre completo</Text>
+                  <View style={[styles.inputWrapper, errors.nombre ? styles.inputError : null]}>
+                    <Ionicons
+                      name="person-outline" size={20}
+                      color={errors.nombre ? colors.error : colors.textSecondary}
+                      style={styles.inputIcon}
+                    />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Tu nombre"
+                      placeholderTextColor={colors.textSecondary}
+                      value={nombre}
+                      onChangeText={(v) => { setNombre(v); setErrors(p => ({ ...p, nombre: '' })); }}
+                      autoCapitalize="words"
+                      autoCorrect={false}
+                    />
+                  </View>
+                  {errors.nombre ? <Text style={styles.errorText}>{errors.nombre}</Text> : null}
+                </View>
+              ) : null}
 
               {/* Contraseña */}
               <View style={styles.inputGroup}>

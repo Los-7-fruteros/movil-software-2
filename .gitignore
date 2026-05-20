@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+node_modules 2/
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# Native
+ios/
+android/
+
+# Debug
+npm-debug.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# misc
+.DS_Store
+*.pem
+.env
+npm
+
+# Yarn
+.yarn/

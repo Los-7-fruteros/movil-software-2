@@ -1,8 +1,12 @@
 // src/context/AuthContext.js
-// Contexto global de autenticación con Supabase
+// Contexto global de autenticación con backend EC2
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../config/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const API_BASE = 'http://ec2-100-24-12-31.compute-1.amazonaws.com:8000';
+const TOKEN_KEY = '@auth_token';
+const USER_KEY  = '@auth_user';
 
 const AuthContext = createContext({});
 
@@ -12,46 +16,53 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Obtener sesión activa al iniciar
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    // Restaurar sesión guardada al iniciar
+    (async () => {
+      try {
+        const [token, userJson] = await Promise.all([
+          AsyncStorage.getItem(TOKEN_KEY),
+          AsyncStorage.getItem(USER_KEY),
+        ]);
+        if (token && userJson) {
+          setSession(token);
+          setUser(JSON.parse(userJson));
+        }
+      } catch (_) {}
       setLoading(false);
-    });
-
-    // Suscribirse a cambios de autenticación
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    );
-
-    return () => subscription.unsubscribe();
+    })();
   }, []);
 
   const signIn = async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    const res = await fetch(`${API_BASE}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, contrasena: password }),
     });
-    if (error) throw error;
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Credenciales inválidas');
+    await AsyncStorage.setItem(TOKEN_KEY, data.access_token);
+    await AsyncStorage.setItem(USER_KEY, JSON.stringify(data.usuario));
+    setSession(data.access_token);
+    setUser(data.usuario);
     return data;
   };
 
-  const signUp = async (email, password) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
+  const signUp = async (email, password, nombre = 'Usuario') => {
+    const res = await fetch(`${API_BASE}/api/auth/registro`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, contrasena: password, nombre, rol: 'usuario' }),
     });
-    if (error) throw error;
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Error al registrarse');
     return data;
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    await AsyncStorage.removeItem(TOKEN_KEY);
+    await AsyncStorage.removeItem(USER_KEY);
+    setSession(null);
+    setUser(null);
   };
 
   return (

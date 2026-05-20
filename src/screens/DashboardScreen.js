@@ -156,7 +156,13 @@ const DashboardScreen = () => {
             refresh={refresh}
           />
         ) : (
-          <HectareasView predios={predios} />
+          <HectareasView
+            telemetry={telemetry}
+            alerts={alerts}
+            hasPendingData={hasPendingData}
+            applyPendingData={applyPendingData}
+            refresh={refresh}
+          />
         )}
       </ScrollView>
     </View>
@@ -213,30 +219,51 @@ const PrincipalView = ({ telemetry, alerts, hasPendingData, applyPendingData, re
 );
 
 // ── Vista: Hectáreas ─────────────────────────────────
-const HectareasView = ({ predios }) => (
-  <View style={styles.section}>
-    <Text style={styles.sectionTitle}>🌿 Cultivos por Hectárea</Text>
-    {predios.length === 0 ? (
-      <View style={styles.emptyBox}>
-        <MaterialCommunityIcons name="wifi-off" size={32} color="#9CA3AF" />
-        <Text style={styles.emptyText}>Próxima conexión</Text>
-        <Text style={styles.emptySubText}>Sin predios registrados en Supabase</Text>
-      </View>
-    ) : (
-      predios.map((p) => (
-        <CropCard
-          key={p.id}
-          name={p.name}
-          tipo={p.tipo}
-          ubicacion={p.ubicacion}
-          humedadAire={p.humedadAire}
-          humedadSuelo={p.humedadSuelo}
-          temperatura={p.temperatura}
-          tipoLectura={p.tipoLectura}
+const HectareasView = ({ telemetry, alerts, hasPendingData, applyPendingData, refresh }) => (
+  <>
+    {/* Telemetría */}
+    <View style={styles.section}>
+      <TouchableOpacity
+        style={[styles.newDataBtn, hasPendingData ? styles.newDataBtnActive : styles.newDataBtnIdle]}
+        onPress={hasPendingData ? applyPendingData : refresh}
+        activeOpacity={0.8}
+      >
+        <MaterialCommunityIcons
+          name={hasPendingData ? 'arrow-up-circle' : 'refresh'}
+          size={16}
+          color={hasPendingData ? '#fff' : '#6B7280'}
         />
-      ))
-    )}
-  </View>
+        <Text style={[styles.newDataBtnText, !hasPendingData && { color: '#6B7280' }]}>
+          {hasPendingData ? '⚡ Nuevos valores · Toca para actualizar' : 'Valores al día · Toca para refrescar'}
+        </Text>
+      </TouchableOpacity>
+
+      <Text style={styles.sectionTitle}>📊 Hectaria 1 — Lecturas en Tiempo Real</Text>
+      <TelemetryCard metric="temperatura"  value={telemetry.temperatura}  unit="°C" tipoLectura={telemetry.tipoLectura} ultimaLectura={telemetry.ultimaLectura} progressMax={50} />
+      <TelemetryCard metric="humedadAire"  value={telemetry.humedadAire}  unit="%" tipoLectura={telemetry.tipoLectura} ultimaLectura={telemetry.ultimaLectura} />
+      <TelemetryCard metric="humedadSuelo" value={telemetry.humedadSuelo} unit="%" tipoLectura={telemetry.tipoLectura} ultimaLectura={telemetry.ultimaLectura} />
+    </View>
+
+    {/* Alertas */}
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>⚠️ Alertas del Sistema</Text>
+      {alerts.length === 0 ? (
+        <View style={styles.emptyBox}>
+          <MaterialCommunityIcons name="check-circle-outline" size={32} color={colors.success} />
+          <Text style={styles.emptyText}>Sin alertas activas</Text>
+        </View>
+      ) : (
+        alerts.map((a, i) => (
+          <AlertCard
+            key={a.id || i}
+            type={a.tipo || a.type}
+            message={a.mensaje || a.message}
+            timestamp={a.created_at || a.timestamp}
+          />
+        ))
+      )}
+    </View>
+  </>
 );
 
 const styles = StyleSheet.create({
