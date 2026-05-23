@@ -183,9 +183,9 @@ const PrincipalView = ({ telemetry, alerts, hasPendingData, applyPendingData, re
         <MaterialCommunityIcons
           name={hasPendingData ? 'arrow-up-circle' : 'refresh'}
           size={16}
-          color={hasPendingData ? '#fff' : '#6B7280'}
+          color={hasPendingData ? '#fff' : colors.textSecondary}
         />
-        <Text style={[styles.newDataBtnText, !hasPendingData && { color: '#6B7280' }]}>
+        <Text style={[styles.newDataBtnText, !hasPendingData && { color: colors.textSecondary }]}>
           {hasPendingData ? '⚡ Nuevos valores · Toca para actualizar' : 'Valores al día · Toca para refrescar'}
         </Text>
       </TouchableOpacity>
@@ -231,9 +231,9 @@ const HectareasView = ({ telemetry, alerts, hasPendingData, applyPendingData, re
         <MaterialCommunityIcons
           name={hasPendingData ? 'arrow-up-circle' : 'refresh'}
           size={16}
-          color={hasPendingData ? '#fff' : '#6B7280'}
+          color={hasPendingData ? '#fff' : colors.textSecondary}
         />
-        <Text style={[styles.newDataBtnText, !hasPendingData && { color: '#6B7280' }]}>
+        <Text style={[styles.newDataBtnText, !hasPendingData && { color: colors.textSecondary }]}>
           {hasPendingData ? '⚡ Nuevos valores · Toca para actualizar' : 'Valores al día · Toca para refrescar'}
         </Text>
       </TouchableOpacity>
@@ -336,8 +336,8 @@ const styles = StyleSheet.create({
     borderRadius: 12, marginBottom: 12,
     ...layout.shadowLight,
   },
-  newDataBtnActive: { backgroundColor: '#16A34A' },
-  newDataBtnIdle:   { backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB' },
+  newDataBtnActive: { backgroundColor: colors.successDark },
+  newDataBtnIdle:   { backgroundColor: colors.backgroundMuted, borderWidth: 1, borderColor: colors.border },
   newDataBtnText: { fontWeight: '700', fontSize: 13, color: '#fff' },
 
   // Secciones
@@ -353,8 +353,8 @@ const styles = StyleSheet.create({
   errorBox: { alignItems: 'center', paddingVertical: 60, gap: 12 },
   errorText: { color: colors.error, fontSize: 14, textAlign: 'center' },
   emptyBox: { alignItems: 'center', paddingVertical: 40, gap: 8 },
-  emptyText: { fontSize: 15, fontWeight: '600', color: '#9CA3AF' },
-  emptySubText: { fontSize: 12, color: '#9CA3AF' },
+  emptyText: { fontSize: 15, fontWeight: '600', color: colors.textMuted },
+  emptySubText: { fontSize: 12, color: colors.textMuted },
 });
 
 export default DashboardScreen;

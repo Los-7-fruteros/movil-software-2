@@ -24,7 +24,7 @@ export const layout = {
     elevation: 3,
   },
   shadowMedium: {
-    shadowColor: '#2563EB',
+    shadowColor: '#1A3D2B',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,

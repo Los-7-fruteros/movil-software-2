@@ -8,18 +8,24 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#EBF5FF"
+      "backgroundColor": "#EEF5F0"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.reservoirmonitor.app"
+      "bundleIdentifier": "com.reservoirmonitor.app",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#EBF5FF"
       },
-      "package": "com.reservoirmonitor.app"
+      "package": "com.reservoirmonitor.app",
+      "usesCleartextTraffic": true
     },
     "plugins": [
       "expo-web-browser"

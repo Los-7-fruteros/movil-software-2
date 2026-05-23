@@ -23,7 +23,7 @@ const emojiForTipo = (tipo = '') => {
 const bgForTipo = (tipo = '') => {
   const t = tipo.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   if (t.includes('tomate'))   return '#FEE2E2';
-  if (t.includes('arandano')) return '#E0E7FF';
+  if (t.includes('arandano')) return '#D4EAD9';
   if (t.includes('limon'))    return '#FEF9C3';
   if (t.includes('maiz'))     return '#FEF3C7';
   if (t.includes('fresa'))    return '#FCE7F3';
@@ -86,7 +86,7 @@ const CropCard = ({ name, tipo, ubicacion, humedadAire, humedadSuelo, temperatur
       {/* Métricas */}
       <View style={styles.metricsContainer}>
         <MetricRow icon="thermometer"   label="Temperatura"          value={temperatura}  unit="°C" bg="#FFF7ED" iconColor="#F97316" />
-        <MetricRow icon="weather-windy" label="Humedad del Aire"     value={humedadAire}  unit="%"  bg="#EFF6FF" iconColor="#3B82F6" />
+        <MetricRow icon="weather-windy" label="Humedad del Aire"     value={humedadAire}  unit="%"  bg="#EEF5F0" iconColor="#2D5A3D" />
         <MetricRow icon="water"         label="Humedad del Suelo"    value={humedadSuelo} unit="%"  bg="#F0FDF4" iconColor="#16A34A" />
       </View>
     </View>

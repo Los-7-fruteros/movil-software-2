@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   // Toggle
   modeRow: {
     flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#D4EAD9',
     borderRadius: 12, padding: 4, marginBottom: 20, gap: 4,
   },
   modeBtn: {
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row', alignItems: 'center',
     borderWidth: 1.5, borderColor: colors.border,
-    borderRadius: 14, backgroundColor: '#F9FAFB',
+    borderRadius: 14, backgroundColor: '#F7FAF8',
     paddingHorizontal: 14, height: 52,
   },
   inputError: { borderColor: colors.error, backgroundColor: '#FFF5F5' },

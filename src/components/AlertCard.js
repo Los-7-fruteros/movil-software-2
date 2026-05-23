@@ -5,6 +5,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { layout } from '../constants';
+import { colors } from '../constants';
 
 const ALERT_STYLES = {
   critical:     { bg: '#FEF2F2', border: '#EF4444', icon: 'alert-circle',  iconColor: '#EF4444', label: 'Crítico',      labelBg: '#FEE2E2', labelColor: '#B91C1C' },
@@ -13,9 +14,9 @@ const ALERT_STYLES = {
   warning:      { bg: '#FFFBEB', border: '#F59E0B', icon: 'alert',         iconColor: '#F59E0B', label: 'Advertencia',  labelBg: '#FEF3C7', labelColor: '#92400E' },
   advertencia:  { bg: '#FFFBEB', border: '#F59E0B', icon: 'alert',         iconColor: '#F59E0B', label: 'Advertencia',  labelBg: '#FEF3C7', labelColor: '#92400E' },
   media:        { bg: '#FFFBEB', border: '#F59E0B', icon: 'alert',         iconColor: '#F59E0B', label: 'Media',        labelBg: '#FEF3C7', labelColor: '#92400E' },
-  info:         { bg: '#EFF6FF', border: '#3B82F6', icon: 'information',   iconColor: '#3B82F6', label: 'Información',  labelBg: '#DBEAFE', labelColor: '#1E40AF' },
-  informativa:  { bg: '#EFF6FF', border: '#3B82F6', icon: 'information',   iconColor: '#3B82F6', label: 'Información',  labelBg: '#DBEAFE', labelColor: '#1E40AF' },
-  baja:         { bg: '#EFF6FF', border: '#3B82F6', icon: 'information',   iconColor: '#3B82F6', label: 'Baja',         labelBg: '#DBEAFE', labelColor: '#1E40AF' },
+  info:         { bg: '#EEF5F0', border: '#52B788', icon: 'information',   iconColor: '#52B788', label: 'Información',  labelBg: '#D4EAD9', labelColor: '#1A3D2B' },
+  informativa:  { bg: '#EEF5F0', border: '#52B788', icon: 'information',   iconColor: '#52B788', label: 'Información',  labelBg: '#D4EAD9', labelColor: '#1A3D2B' },
+  baja:         { bg: '#EEF5F0', border: '#52B788', icon: 'information',   iconColor: '#52B788', label: 'Baja',         labelBg: '#D4EAD9', labelColor: '#1A3D2B' },
 };
 
 const formatTime = (timestamp) => {
@@ -101,12 +102,12 @@ const styles = StyleSheet.create({
   },
   time: {
     fontSize: 11,
-    color: '#9CA3AF',
+    color: colors.textMuted,
     fontWeight: '500',
   },
   message: {
     fontSize: 13,
-    color: '#374151',
+    color: colors.textPrimary,
     lineHeight: 19,
     fontWeight: '500',
   },
