@@ -1,75 +1,71 @@
 // src/context/AuthContext.js
-// Contexto global de autenticación con backend EC2
+// Contexto global de autenticación contra la API FastAPI en EC2.
+// Endpoints: /api/auth/login, /api/auth/registro, /api/usuarios/me
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const API_BASE = 'http://ec2-100-24-12-31.compute-1.amazonaws.com:8000';
-const TOKEN_KEY = '@auth_token';
-const USER_KEY  = '@auth_user';
+import { login as apiLogin, registro as apiRegistro, logout as apiLogout, getMe } from '../services/auth';
+import { tokenStorage } from '../config/api';
 
 const AuthContext = createContext({});
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [session, setSession] = useState(null);
+  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // Restaurar sesión guardada al iniciar
-    (async () => {
-      try {
-        const [token, userJson] = await Promise.all([
-          AsyncStorage.getItem(TOKEN_KEY),
-          AsyncStorage.getItem(USER_KEY),
-        ]);
-        if (token && userJson) {
-          setSession(token);
-          setUser(JSON.parse(userJson));
+  const hydrate = async () => {
+    try {
+      const saved = await tokenStorage.get();
+      if (saved) {
+        setToken(saved);
+        try {
+          const me = await getMe();
+          setUser(me);
+        } catch (e) {
+          await tokenStorage.clear();
+          setToken(null);
+          setUser(null);
         }
-      } catch (_) {}
+      }
+    } finally {
       setLoading(false);
-    })();
+    }
+  };
+
+  useEffect(() => {
+    hydrate();
   }, []);
 
   const signIn = async (email, password) => {
-    const res = await fetch(`${API_BASE}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, contrasena: password }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Credenciales inválidas');
-    await AsyncStorage.setItem(TOKEN_KEY, data.access_token);
-    await AsyncStorage.setItem(USER_KEY, JSON.stringify(data.usuario));
-    setSession(data.access_token);
-    setUser(data.usuario);
+    const data = await apiLogin(email, password);
+    setToken(data.access_token);
+    if (data.usuario) {
+      setUser(data.usuario);
+    } else {
+      try {
+        const me = await getMe();
+        setUser(me);
+      } catch {}
+    }
     return data;
   };
 
-  const signUp = async (email, password, nombre = 'Usuario') => {
-    const res = await fetch(`${API_BASE}/api/auth/registro`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, contrasena: password, nombre, rol: 'usuario' }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || 'Error al registrarse');
-    return data;
+  const signUp = async (email, password, nombre = 'Usuario', rol = 'agronomo') => {
+    await apiRegistro({ email, contrasena: password, nombre, rol });
+    return await signIn(email, password);
   };
 
   const signOut = async () => {
-    await AsyncStorage.removeItem(TOKEN_KEY);
-    await AsyncStorage.removeItem(USER_KEY);
-    setSession(null);
+    await apiLogout();
     setUser(null);
+    setToken(null);
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        session,
+        session: token ? { access_token: token } : null,
         loading,
         signIn,
         signUp,

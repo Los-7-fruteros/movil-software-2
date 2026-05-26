@@ -1,4 +1,3 @@
-import 'react-native-url-polyfill/auto';
 import { registerRootComponent } from 'expo';
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';

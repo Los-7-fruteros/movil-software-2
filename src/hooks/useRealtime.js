@@ -1,257 +1,153 @@
 // src/hooks/useRealtime.js
-// Datos en tiempo real desde Supabase
-// Tabla principal: lecturas_cultivo (humedad_aire, humedad_suelo, tipo_lectura)
+// Polling de datos contra la API FastAPI en EC2.
+// Endpoints usados:
+//   GET /api/telemetry/latest  -> última lectura de cultivo
+//   GET /api/predios           -> predios para vista de hectáreas
+//   GET /api/alertas           -> alertas activas
+//
+// Comportamiento del botón "refrescar":
+//   - Mientras no llegue ningún dato nuevo respecto a lo mostrado, el botón
+//     queda en estado idle (color apagado, texto "Valores al día").
+//   - Cuando el backend devuelve una lectura con created_at posterior a la
+//     última aplicada, se pone en pendingTelemetry y el botón se vuelve verde
+//     ("Nuevos valores - Toca para actualizar"). Al pulsarlo se aplica.
+//   - Si el usuario pulsa cuando está idle, se hace un refresh manual.
 
-import { useEffect, useState, useCallback } from 'react';
-import { supabase } from '../config/supabase';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { listPredios } from '../services/predios';
+import { listAlertas } from '../services/alertas';
+import { getLatestTelemetry } from '../services/telemetry';
 
-// false → Supabase real (Arduino → Supabase → App)
-// true  → modo demo local sin hardware
-const USE_MOCK_DATA = false;
+const POLL_INTERVAL_MS = 15000;
+
+const EMPTY_TELEMETRY = {
+  humedadAire: null,
+  humedadSuelo: null,
+  temperatura: null,
+  tipoLectura: null,
+  ultimaLectura: null,
+};
+
+const mapLectura = (row) => {
+  if (!row) return null;
+  return {
+    humedadAire:   row.humedad_aire ?? null,
+    humedadSuelo:  row.humedad_suelo ?? null,
+    temperatura:   row.temperatura ?? null,
+    tipoLectura:   'automatico',
+    ultimaLectura: row.created_at ?? null,
+  };
+};
 
 export const useRealtime = () => {
-  // Datos actualmente MOSTRADOS en pantalla
-  const [telemetry, setTelemetry] = useState({
-    humedadAire:  null,
-    humedadSuelo: null,
-    temperatura:  null,
-    tipoLectura:  null,
-    ultimaLectura: null,
-  });
-
-  // Datos NUEVOS recibidos por Realtime (pendientes de mostrar)
+  const [telemetry, setTelemetry] = useState(EMPTY_TELEMETRY);
   const [pendingTelemetry, setPendingTelemetry] = useState(null);
+  const [cropData, setCropData] = useState({});
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const mountedRef = useRef(true);
+  const lastAppliedTsRef = useRef(null);
+
   const hasPendingData = pendingTelemetry !== null;
 
-  // Predios/cultivos — forma: { [predio_id]: { name, tipo, humedadAire, humedadSuelo, tipoLectura } }
-  const [cropData, setCropData] = useState({});
-
-  // Alertas desde tabla `alertas`
-  const [alerts, setAlerts] = useState([]);
-
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState(null);
-
-  // El usuario pulsa "Cargar nuevos valores"
   const applyPendingData = useCallback(() => {
-    if (pendingTelemetry) {
-      setTelemetry(pendingTelemetry);
-      setPendingTelemetry(null);
-    }
-  }, [pendingTelemetry]);
-
-  // Función de refresco manual — re-fetches últimos valores de Supabase
-  const refresh = useCallback(async () => {
-    try {
-      const { data: rows } = await supabase
-        .from('lecturas_cultivo')
-        .select('humedad_aire, humedad_suelo, temperatura, created_at')
-        .order('created_at', { ascending: false })
-        .limit(1);
-      const lec = rows?.[0];
-      if (lec) {
-        setTelemetry({
-          humedadAire:   lec.humedad_aire  ?? null,
-          humedadSuelo:  lec.humedad_suelo ?? null,
-          temperatura:   lec.temperatura   ?? null,
-          ultimaLectura: lec.created_at    ?? null,
-        });
-        setPendingTelemetry(null);
+    setPendingTelemetry((pending) => {
+      if (pending) {
+        setTelemetry(pending);
+        lastAppliedTsRef.current = pending.ultimaLectura;
       }
+      return null;
+    });
+  }, []);
+
+  const fetchAll = useCallback(async ({ silent = false, applyTelemetryImmediately = false } = {}) => {
+    if (!silent) setLoading(true);
+    setError(null);
+    try {
+      const [latest, predios, alertasResp] = await Promise.all([
+        getLatestTelemetry().catch(() => null),
+        listPredios({ limit: 50, offset: 0 }).catch(() => []),
+        listAlertas({ limit: 10, offset: 0 }).catch(() => []),
+      ]);
+
+      if (!mountedRef.current) return;
+
+      const mapped = mapLectura(latest);
+
+      if (mapped) {
+        const ts = mapped.ultimaLectura;
+        if (applyTelemetryImmediately || lastAppliedTsRef.current === null) {
+          setTelemetry(mapped);
+          setPendingTelemetry(null);
+          lastAppliedTsRef.current = ts;
+        } else if (ts && ts !== lastAppliedTsRef.current) {
+          setPendingTelemetry(mapped);
+        }
+      }
+
+      // Predios -> cropData. Si no hay predios pero hay lectura, sintetizamos
+      // una "Hectárea 1" para que el usuario vea siempre al menos un cultivo.
+      const next = {};
+      const prediosArr = predios || [];
+      if (prediosArr.length > 0) {
+        prediosArr.forEach((p, idx) => {
+          next[p.id] = {
+            name: p.nombre || `Hectárea ${idx + 1}`,
+            tipo: p.tipo_cultivo || '',
+            ubicacion: p.ubicacion || '',
+            humedadAire:  mapped?.humedadAire  ?? null,
+            humedadSuelo: mapped?.humedadSuelo ?? null,
+            temperatura:  mapped?.temperatura  ?? null,
+          };
+        });
+      } else if (mapped) {
+        next['hectarea-1'] = {
+          name: 'Hectárea 1',
+          tipo: 'Cultivo Principal',
+          ubicacion: '',
+          humedadAire:  mapped.humedadAire,
+          humedadSuelo: mapped.humedadSuelo,
+          temperatura:  mapped.temperatura,
+        };
+      }
+      setCropData(next);
+      setAlerts(alertasResp || []);
     } catch (e) {
-      console.error('[refresh]', e);
+      if (mountedRef.current) {
+        setError(e.message || 'Error de conexión con el servidor.');
+      }
+    } finally {
+      if (mountedRef.current && !silent) setLoading(false);
     }
   }, []);
 
-  // ─── Carga inicial ────────────────────────────────────────────
-  const fetchInitialData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // 1. Última lectura global — sin .single() para evitar error si tabla vacía
-      const { data: rows, error: lecErr } = await supabase
-        .from('lecturas_cultivo')
-        .select('humedad_aire, humedad_suelo, temperatura, created_at')
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (lecErr) console.warn('[useRealtime] lecturas_cultivo error:', JSON.stringify(lecErr));
-
-      const lec = rows?.[0];
-      if (lec) {
-        setTelemetry({
-          humedadAire:  lec.humedad_aire  ?? null,
-          humedadSuelo: lec.humedad_suelo ?? null,
-          temperatura:  lec.temperatura   ?? null,
-          ultimaLectura: lec.created_at   ?? null,
-        });
-      }
-
-      // 2. Predios (cultivos)
-      const { data: predios, error: predioErr } = await supabase
-        .from('predio')
-        .select('id, nombre, tipo_cultivo, ubicacion')
-        .order('created_at', { ascending: true });
-
-      if (!predioErr && predios && predios.length > 0) {
-        const updates = {};
-
-        for (const predio of predios) {
-          // Sensores de este predio
-          const { data: sensores } = await supabase
-            .from('sensores')
-            .select('id')
-            .eq('predio_id', predio.id);
-
-          let aire = null, suelo = null, temp = null, tipo = null;
-
-          if (sensores && sensores.length > 0) {
-            const ids = sensores.map(s => s.id);
-            const { data: latLec } = await supabase
-              .from('lecturas_cultivo')
-              .select('humedad_aire, humedad_suelo, temperatura')
-              .in('sensor_id', ids)
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .single();
-
-            if (latLec) {
-              aire  = latLec.humedad_aire  ?? null;
-              suelo = latLec.humedad_suelo ?? null;
-              temp  = latLec.temperatura   ?? null;
-            }
-          }
-
-          updates[predio.id] = {
-            name: predio.nombre || 'Sin nombre',
-            tipo: predio.tipo_cultivo || '',
-            ubicacion: predio.ubicacion || '',
-            humedadAire:  aire,
-            humedadSuelo: suelo,
-            temperatura:  temp,
-          };
-        }
-
-        setCropData(updates);
-      }
-
-      // 3. Últimas 10 alertas
-      const { data: alertData, error: alertErr } = await supabase
-        .from('alertas')
-        .select('id, tipo, mensaje, valor, created_at')
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      if (!alertErr && alertData) {
-        setAlerts(alertData);
-      }
-    } catch (err) {
-      setError('Error de conexión con Supabase.');
-      console.error('[useRealtime]', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ─── Suscripciones Realtime ───────────────────────────────────
-  const subscribeSupabase = () => {
-    // Nuevas lecturas de lecturas_cultivo
-    const lecChannel = supabase
-      .channel('rt:lecturas_cultivo')
-      .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'lecturas_cultivo' },
-        (payload) => {
-          const n = payload.new;
-          if (!n) return;
-
-          setPendingTelemetry({
-            humedadAire:  n.humedad_aire  ?? null,
-            humedadSuelo: n.humedad_suelo ?? null,
-            temperatura:  n.temperatura   ?? null,
-            ultimaLectura: n.created_at   ?? new Date().toISOString(),
-          });
-        }
-      )
-      .subscribe();
-
-    // Nuevas alertas
-    const alertChannel = supabase
-      .channel('rt:alertas')
-      .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'alertas' },
-        (payload) => {
-          if (payload.new) {
-            setAlerts(prev => [payload.new, ...prev].slice(0, 20));
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(lecChannel);
-      supabase.removeChannel(alertChannel);
-    };
-  };
-
-  // Actualiza el predio en estado cuando llega una nueva lectura Realtime
-  const refreshPredioForSensor = async (sensorId, metrics) => {
-    const { data: sensor } = await supabase
-      .from('sensores')
-      .select('predio_id')
-      .eq('id', sensorId)
-      .single();
-
-    if (sensor?.predio_id) {
-      setCropData(prev => {
-        if (!prev[sensor.predio_id]) return prev;
-        return {
-          ...prev,
-          [sensor.predio_id]: {
-            ...prev[sensor.predio_id],
-            ...metrics,
-          },
-        };
-      });
-    }
-  };
-
-  // ─── Mock data (modo demo) ────────────────────────────────────
-  const runMock = () => {
-    setLoading(false);
-    setTelemetry({ humedadAire: 68.5, humedadSuelo: 42.3, temperatura: 24.1, tipoLectura: 'automatico', ultimaLectura: new Date().toISOString() });
-    setCropData({
-      mock1: { name: 'Tomates',   tipo: 'Tomate',   humedadAire: 72.3, humedadSuelo: 38.1, temperatura: 26.5, tipoLectura: 'automatico' },
-      mock2: { name: 'Arándanos', tipo: 'Arándano', humedadAire: 65.1, humedadSuelo: 55.4, temperatura: 22.3, tipoLectura: 'manual'     },
-    });
-    setAlerts([
-      { id: 1, tipo: 'critica',     mensaje: 'Humedad del suelo crítica.',       created_at: new Date().toISOString() },
-      { id: 2, tipo: 'advertencia', mensaje: 'Temperatura del aire elevada.',     created_at: new Date().toISOString() },
-    ]);
-
-    const iv = setInterval(() => {
-      setPendingTelemetry({
-        humedadAire:  Number((60 + Math.random() * 15).toFixed(1)),
-        humedadSuelo: Number((35 + Math.random() * 20).toFixed(1)),
-        temperatura:  Number((20 + Math.random() * 10).toFixed(1)),
-        tipoLectura:     Math.random() > 0.5 ? 'automatico' : 'manual',
-        ultimaLectura:   new Date().toISOString(),
-      });
-    }, 5000);
-
-    return () => clearInterval(iv);
-  };
+  const refresh = useCallback(
+    () => fetchAll({ silent: true, applyTelemetryImmediately: true }),
+    [fetchAll],
+  );
 
   useEffect(() => {
-    let cleanup;
-    if (USE_MOCK_DATA) {
-      cleanup = runMock();
-    } else {
-      fetchInitialData();
-      cleanup = subscribeSupabase();
-    }
-    return cleanup;
-  }, []);
+    mountedRef.current = true;
+    fetchAll();
+    const id = setInterval(() => {
+      fetchAll({ silent: true });
+    }, POLL_INTERVAL_MS);
+    return () => {
+      mountedRef.current = false;
+      clearInterval(id);
+    };
+  }, [fetchAll]);
 
-  return { telemetry, cropData, alerts, loading, error, hasPendingData, applyPendingData, refresh };
+  return {
+    telemetry,
+    cropData,
+    alerts,
+    loading,
+    error,
+    hasPendingData,
+    applyPendingData,
+    refresh,
+  };
 };

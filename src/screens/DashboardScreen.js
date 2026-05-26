@@ -159,6 +159,7 @@ const DashboardScreen = () => {
           <HectareasView
             telemetry={telemetry}
             alerts={alerts}
+            predios={predios}
             hasPendingData={hasPendingData}
             applyPendingData={applyPendingData}
             refresh={refresh}
@@ -190,7 +191,7 @@ const PrincipalView = ({ telemetry, alerts, hasPendingData, applyPendingData, re
         </Text>
       </TouchableOpacity>
 
-      <Text style={styles.sectionTitle}>📊 Lecturas en Tiempo Real</Text>
+      <Text style={styles.sectionTitle}>📊 Hectárea 1 · Lecturas en Tiempo Real</Text>
       <TelemetryCard metric="temperatura"  value={telemetry.temperatura}  unit="°C" tipoLectura={telemetry.tipoLectura} ultimaLectura={telemetry.ultimaLectura} progressMax={50} />
       <TelemetryCard metric="humedadAire"  value={telemetry.humedadAire}  unit="%" tipoLectura={telemetry.tipoLectura} ultimaLectura={telemetry.ultimaLectura} />
       <TelemetryCard metric="humedadSuelo" value={telemetry.humedadSuelo} unit="%" tipoLectura={telemetry.tipoLectura} ultimaLectura={telemetry.ultimaLectura} />
@@ -219,9 +220,25 @@ const PrincipalView = ({ telemetry, alerts, hasPendingData, applyPendingData, re
 );
 
 // ── Vista: Hectáreas ─────────────────────────────────
-const HectareasView = ({ telemetry, alerts, hasPendingData, applyPendingData, refresh }) => (
+// Por ahora solo existe un sistema instalado, por lo que mostramos
+// "Hectárea 1" como la única hectárea activa. Cuando se compren más
+// sistemas, este listado se poblará automáticamente desde /api/predios.
+const HectareasView = ({ telemetry, alerts, predios = [], hasPendingData, applyPendingData, refresh }) => {
+  const hectareas = predios.length > 0
+    ? predios
+    : [{
+        id: 'hectarea-1',
+        name: 'Hectárea 1',
+        tipo: 'Cultivo Principal',
+        ubicacion: '',
+        humedadAire:  telemetry.humedadAire,
+        humedadSuelo: telemetry.humedadSuelo,
+        temperatura:  telemetry.temperatura,
+      }];
+
+  return (
   <>
-    {/* Telemetría */}
+    {/* Botón refrescar / nuevos valores */}
     <View style={styles.section}>
       <TouchableOpacity
         style={[styles.newDataBtn, hasPendingData ? styles.newDataBtnActive : styles.newDataBtnIdle]}
@@ -238,10 +255,19 @@ const HectareasView = ({ telemetry, alerts, hasPendingData, applyPendingData, re
         </Text>
       </TouchableOpacity>
 
-      <Text style={styles.sectionTitle}>📊 Hectaria 1 — Lecturas en Tiempo Real</Text>
-      <TelemetryCard metric="temperatura"  value={telemetry.temperatura}  unit="°C" tipoLectura={telemetry.tipoLectura} ultimaLectura={telemetry.ultimaLectura} progressMax={50} />
-      <TelemetryCard metric="humedadAire"  value={telemetry.humedadAire}  unit="%" tipoLectura={telemetry.tipoLectura} ultimaLectura={telemetry.ultimaLectura} />
-      <TelemetryCard metric="humedadSuelo" value={telemetry.humedadSuelo} unit="%" tipoLectura={telemetry.tipoLectura} ultimaLectura={telemetry.ultimaLectura} />
+      <Text style={styles.sectionTitle}>🗺️ Hectáreas activas</Text>
+      {hectareas.map((h) => (
+        <CropCard
+          key={h.id}
+          name={h.name}
+          tipo={h.tipo}
+          ubicacion={h.ubicacion}
+          humedadAire={h.humedadAire}
+          humedadSuelo={h.humedadSuelo}
+          temperatura={h.temperatura}
+          tipoLectura={telemetry.tipoLectura}
+        />
+      ))}
     </View>
 
     {/* Alertas */}
@@ -264,7 +290,8 @@ const HectareasView = ({ telemetry, alerts, hasPendingData, applyPendingData, re
       )}
     </View>
   </>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
