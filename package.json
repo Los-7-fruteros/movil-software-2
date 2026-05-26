@@ -3,8 +3,11 @@
   "version": "1.0.0",
   "main": "App.js",
   "scripts": {
+    "prestart": "node scripts/debug-health.js",
     "start": "expo start",
+    "preandroid": "node scripts/debug-health.js",
     "android": "expo start --android",
+    "preios": "node scripts/debug-health.js",
     "ios": "expo start --ios",
     "debug": "node scripts/debug-health.js"
   },

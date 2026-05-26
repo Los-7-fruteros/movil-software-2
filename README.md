@@ -64,15 +64,22 @@ Tras la aprobación de Apple (~15 min), invita testers desde [App Store Connect]
 cd reservoir-monitor
 npm install
 cp .env.example .env       # Edita EXPO_PUBLIC_API_URL si cambia el backend
-npx expo start
+npm start                  # ejecuta el checklist de debug y luego abre Expo
 ```
+
+> **Nota:** usa `npm start` (o `npm run android` / `npm run ios`) en lugar de `npx expo start` para que el checklist de salud se imprima automáticamente antes de levantar Metro. Si quieres saltarlo en algun momento puntual:
+> ```bash
+> npm start -- --no-debug   # no, no existe; usa npx expo start directo para saltar el hook
+> npx expo start            # arranca Expo SIN ejecutar el checklist
+> ```
 
 Escanea el QR con **Expo Go** (funciona idéntico en iOS y Android).
 
-### Verificar conectividad con el backend
+### Ejecutar solo el checklist de salud
 
 ```bash
-npm run debug
+npm run debug              # imprime el checklist sin abrir Expo
+STRICT=1 npm run debug     # falla con exit 1 si hay errores (útil en CI)
 ```
 
 ---
