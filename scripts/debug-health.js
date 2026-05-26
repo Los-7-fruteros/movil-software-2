@@ -144,13 +144,14 @@ async function checkBackend(apiBase) {
 function summary() {
   head('Resumen');
   console.log(`${c.green}OK:${c.reset} ${results.pass}   ${c.yellow}WARN:${c.reset} ${results.warn}   ${c.red}FAIL:${c.reset} ${results.fail}`);
+  const strict = process.env.STRICT === '1';
   if (results.fail > 0) {
     console.log(`\n${c.red}${c.bold}Hay fallos.${c.reset} Revisa los puntos con ✘ antes de probar la app.`);
-    process.exitCode = 1;
+    if (strict) process.exitCode = 1;
   } else if (results.warn > 0) {
     console.log(`\n${c.yellow}${c.bold}Con advertencias.${c.reset} La app debería funcionar.`);
   } else {
-    console.log(`\n${c.green}${c.bold}Todo en verde.${c.reset} Listo para: npx expo start`);
+    console.log(`\n${c.green}${c.bold}Todo en verde.${c.reset} Arrancando Expo...`);
   }
 }
 

@@ -64,16 +64,22 @@ Tras la aprobación de Apple (~15 min), invita testers desde [App Store Connect]
 cd reservoir-monitor
 npm install
 cp .env.example .env       # Edita EXPO_PUBLIC_API_URL si cambia el backend
-npx expo start
+npx expo start             # o `npm start` (equivalente, sin checklist)
 ```
 
 Escanea el QR con **Expo Go** (funciona idéntico en iOS y Android).
 
-### Verificar conectividad con el backend
+### Checklist de salud (debug)
+
+El script `scripts/debug-health.js` verifica entorno local, archivos clave y endpoints del backend FastAPI antes de iniciar.
 
 ```bash
-npm run debug
+npm run debug              # solo el checklist
+npm run start:debug        # checklist + Expo en un solo comando
+STRICT=1 npm run debug     # falla con exit 1 si hay errores (útil en CI)
 ```
+
+> `npx expo start` y `npm start` arrancan Expo sin pasar por el checklist. Para ver el checklist al iniciar usa `npm run start:debug` o ejecuta `npm run debug` aparte.
 
 ---
 
