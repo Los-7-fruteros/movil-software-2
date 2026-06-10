@@ -17,6 +17,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { listPredios } from '../services/predios';
 import { listAlertas } from '../services/alertas';
 import { getLatestTelemetry } from '../services/telemetry';
+import { analyzeCrop } from '../services/cropAdvisor';
 
 const POLL_INTERVAL_MS = 15000;
 
@@ -24,6 +25,7 @@ const EMPTY_TELEMETRY = {
   humedadAire: null,
   humedadSuelo: null,
   temperatura: null,
+  ph: null,
   tipoLectura: null,
   ultimaLectura: null,
 };
@@ -34,9 +36,69 @@ const mapLectura = (row) => {
     humedadAire:   row.humedad_aire ?? null,
     humedadSuelo:  row.humedad_suelo ?? null,
     temperatura:   row.temperatura ?? null,
+    ph:            row.ph ?? null,
     tipoLectura:   'automatico',
     ultimaLectura: row.created_at ?? null,
   };
+};
+
+// Severidad del Asistente IA -> tipo de alerta para AlertCard
+const SEVERITY_TO_TYPE = {
+  critica: 'critica',
+  advertencia: 'advertencia',
+  info: 'info',
+  ok: 'info',
+};
+
+const buildLocalAlerts = (cropData, mapped) => {
+  const out = [];
+  const ts = mapped?.ultimaLectura || new Date().toISOString();
+
+  // Si no hay predios todavía, sintetizamos una "Hectárea 1" con la última
+  // lectura conocida (o todo en null) para que igual se evalúe.
+  let entries = Object.entries(cropData || {});
+  if (entries.length === 0) {
+    entries = [[
+      'hectarea-1',
+      {
+        name: 'Hectárea 1',
+        tipo: 'Cultivo Principal',
+        humedadAire:  mapped?.humedadAire  ?? null,
+        humedadSuelo: mapped?.humedadSuelo ?? null,
+        temperatura:  mapped?.temperatura  ?? null,
+        ph:           mapped?.ph           ?? null,
+      },
+    ]];
+  }
+
+  entries.forEach(([id, h]) => {
+    const analysis = analyzeCrop({
+      tipo: h.tipo || h.name,
+      telemetry: {
+        humedadAire:  h.humedadAire,
+        humedadSuelo: h.humedadSuelo,
+        temperatura:  h.temperatura,
+        ph:           h.ph,
+      },
+    });
+    analysis.diagnoses
+      .filter((d) => d.severity !== 'ok')
+      .forEach((d, i) => {
+        out.push({
+          id: `local-${id}-${i}-${d.title}`,
+          tipo: SEVERITY_TO_TYPE[d.severity] || 'info',
+          mensaje: `${h.name || 'Cultivo'}: ${d.title}. ${d.action || ''}`.trim(),
+          created_at: ts,
+          source: 'ia',
+          severityRank:
+            d.severity === 'critica' ? 3 :
+            d.severity === 'advertencia' ? 2 : 1,
+        });
+      });
+  });
+  // Crítica primero
+  out.sort((a, b) => (b.severityRank || 0) - (a.severityRank || 0));
+  return out;
 };
 
 export const useRealtime = () => {
@@ -100,6 +162,7 @@ export const useRealtime = () => {
             humedadAire:  mapped?.humedadAire  ?? null,
             humedadSuelo: mapped?.humedadSuelo ?? null,
             temperatura:  mapped?.temperatura  ?? null,
+            ph:           mapped?.ph           ?? null,
           };
         });
       } else if (mapped) {
@@ -110,10 +173,18 @@ export const useRealtime = () => {
           humedadAire:  mapped.humedadAire,
           humedadSuelo: mapped.humedadSuelo,
           temperatura:  mapped.temperatura,
+          ph:           mapped.ph,
         };
       }
       setCropData(next);
-      setAlerts(alertasResp || []);
+
+      // Combinar alertas del backend con alertas locales derivadas del
+      // Asistente IA (severidad crítica/advertencia). Esto asegura que el
+      // panel "Alertas del Sistema" siempre muestre lo que está pasando
+      // aunque el backend no haya generado registros propios.
+      const localAlerts = buildLocalAlerts(next, mapped);
+      const remote = (alertasResp || []).map((a) => ({ ...a, source: 'backend' }));
+      setAlerts([...localAlerts, ...remote]);
     } catch (e) {
       if (mountedRef.current) {
         setError(e.message || 'Error de conexión con el servidor.');

@@ -16,7 +16,8 @@
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
-        }
+        },
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -36,6 +37,13 @@
       "eas": {
         "projectId": "1fbe55a1-9166-49fb-b2fb-1943ebc087d2"
       }
-    }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/1fbe55a1-9166-49fb-b2fb-1943ebc087d2"
+    },
+    "owner": "javiercancinounab"
   }
 }

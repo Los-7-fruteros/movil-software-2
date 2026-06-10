@@ -16,7 +16,9 @@ export const tokenStorage = {
   clear: () => AsyncStorage.removeItem(TOKEN_KEY),
 };
 
-async function request(path, { method = 'GET', body, auth = true, headers = {} } = {}) {
+const REQUEST_TIMEOUT_MS = 15000;
+
+async function request(path, { method = 'GET', body, auth = true, headers = {}, timeoutMs = REQUEST_TIMEOUT_MS } = {}) {
   const finalHeaders = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
@@ -28,16 +30,31 @@ async function request(path, { method = 'GET', body, auth = true, headers = {} }
     if (token) finalHeaders.Authorization = `Bearer ${token}`;
   }
 
+  const url = `${API_BASE_URL}${path}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
   let response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    response = await fetch(url, {
       method,
       headers: finalHeaders,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
     });
   } catch (e) {
-    throw new Error('No se pudo conectar con el servidor. Verifica tu conexión.');
+    clearTimeout(timer);
+    if (__DEV__) {
+      console.warn('[api] network error', method, url, e?.message || e);
+    }
+    if (e?.name === 'AbortError') {
+      throw new Error(`El servidor tardó demasiado en responder (${timeoutMs / 1000}s). Revisa tu conexión.`);
+    }
+    throw new Error(
+      `No se pudo conectar con el servidor (${API_BASE_URL}). Verifica tu conexión a internet.`,
+    );
   }
+  clearTimeout(timer);
 
   const text = await response.text();
   const data = text ? safeJson(text) : null;
