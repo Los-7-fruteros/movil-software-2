@@ -1,7 +1,7 @@
 // src/screens/DashboardScreen.js
 // Dashboard principal: Cultivo Principal | Hectáreas
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,8 @@ import { useRealtime } from '../hooks/useRealtime';
 import TelemetryCard from '../components/TelemetryCard';
 import CropCard from '../components/CropCard';
 import AlertCard from '../components/AlertCard';
+import { CropDiagnosisGroup } from '../components/DiagnosisCard';
+import { analyzeCrop } from '../services/cropAdvisor';
 import { colors, gradients, layout } from '../constants';
 
 const DashboardScreen = () => {
@@ -28,6 +30,24 @@ const DashboardScreen = () => {
   const { telemetry, cropData, alerts, loading, error, hasPendingData, applyPendingData, refresh } = useRealtime();
   const [activeView, setActiveView] = useState('principal');
   const [signingOut, setSigningOut] = useState(false);
+  const scrollRef = useRef(null);
+  const alertsYRef = useRef(0);
+
+  const goToAlerts = () => {
+    if (scrollRef.current) {
+      // La sección de alertas es siempre la última del scroll en ambas vistas.
+      scrollRef.current.scrollToEnd({ animated: true });
+    }
+  };
+
+  // Próximamente: tomar/elegir foto para analizar el estado de la planta.
+  const handleCameraPress = () => {
+    Alert.alert(
+      '📷 Foto del cultivo',
+      'Próximamente podrás tomar una foto o elegir una de la galería para analizar el estado de tu planta.',
+      [{ text: 'Entendido' }],
+    );
+  };
 
   const handleSignOut = async () => {
     Alert.alert('Cerrar sesión', '¿Deseas cerrar tu sesión?', [
@@ -73,7 +93,7 @@ const DashboardScreen = () => {
               </View>
             </View>
             <View style={styles.headerActions}>
-              <TouchableOpacity style={styles.iconBtn}>
+              <TouchableOpacity style={styles.iconBtn} onPress={goToAlerts} activeOpacity={0.7}>
                 <Ionicons name="notifications-outline" size={22} color="#fff" />
                 {alerts.length > 0 && (
                   <View style={styles.badge}>
@@ -127,12 +147,22 @@ const DashboardScreen = () => {
                 </View>
               )}
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.cameraToggleBtn}
+              onPress={handleCameraPress}
+              activeOpacity={0.7}
+              accessibilityLabel="Foto del cultivo (próximamente)"
+            >
+              <MaterialCommunityIcons name="camera-outline" size={20} color="#fff" />
+            </TouchableOpacity>
           </View>
         </SafeAreaView>
       </LinearGradient>
 
       {/* ── Contenido ──────────────────────────────── */}
       <ScrollView
+        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -154,6 +184,7 @@ const DashboardScreen = () => {
             hasPendingData={hasPendingData}
             applyPendingData={applyPendingData}
             refresh={refresh}
+            onAlertsLayout={(y) => { alertsYRef.current = y; }}
           />
         ) : (
           <HectareasView
@@ -163,6 +194,7 @@ const DashboardScreen = () => {
             hasPendingData={hasPendingData}
             applyPendingData={applyPendingData}
             refresh={refresh}
+            onAlertsLayout={(y) => { alertsYRef.current = y; }}
           />
         )}
       </ScrollView>
@@ -171,7 +203,12 @@ const DashboardScreen = () => {
 };
 
 // ── Vista: Cultivo Principal ─────────────────────────
-const PrincipalView = ({ telemetry, alerts, hasPendingData, applyPendingData, refresh }) => (
+const PrincipalView = ({ telemetry, alerts, hasPendingData, applyPendingData, refresh, onAlertsLayout }) => {
+  const analysis = analyzeCrop({
+    tipo: 'Cultivo Principal',
+    telemetry,
+  });
+  return (
   <>
     {/* Telemetría */}
     <View style={styles.section}>
@@ -197,6 +234,17 @@ const PrincipalView = ({ telemetry, alerts, hasPendingData, applyPendingData, re
       <TelemetryCard metric="humedadSuelo" value={telemetry.humedadSuelo} unit="%" tipoLectura={telemetry.tipoLectura} ultimaLectura={telemetry.ultimaLectura} />
     </View>
 
+    {/* Asistente IA */}
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>🤖 Asistente IA del Cultivo</Text>
+      <CropDiagnosisGroup
+        cropName="Hectárea 1"
+        cropLabel={analysis.cropLabel}
+        diagnoses={analysis.diagnoses}
+        overall={analysis.overall}
+      />
+    </View>
+
     {/* Alertas */}
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>⚠️ Alertas del Sistema</Text>
@@ -217,13 +265,23 @@ const PrincipalView = ({ telemetry, alerts, hasPendingData, applyPendingData, re
       )}
     </View>
   </>
-);
+  );
+};
 
 // ── Vista: Hectáreas ─────────────────────────────────
 // Por ahora solo existe un sistema instalado, por lo que mostramos
 // "Hectárea 1" como la única hectárea activa. Cuando se compren más
 // sistemas, este listado se poblará automáticamente desde /api/predios.
-const HectareasView = ({ telemetry, alerts, predios = [], hasPendingData, applyPendingData, refresh }) => {
+const HectareasView = ({ telemetry, alerts, predios = [], hasPendingData, applyPendingData, refresh, onAlertsLayout }) => {
+  // Próximamente: se vinculará con el front web para registrar nuevas hectáreas.
+  const handleAddHectarea = () => {
+    Alert.alert(
+      '🌱 Agregar hectárea',
+      'Esta función estará disponible próximamente. Podrás registrar nuevas hectáreas desde la plataforma web.',
+      [{ text: 'Entendido' }],
+    );
+  };
+
   const hectareas = predios.length > 0
     ? predios
     : [{
@@ -268,10 +326,51 @@ const HectareasView = ({ telemetry, alerts, predios = [], hasPendingData, applyP
           tipoLectura={telemetry.tipoLectura}
         />
       ))}
+
+      {/* Agregar hectárea — se vinculará al front web (próximamente) */}
+      <TouchableOpacity
+        style={styles.addHectareaBtn}
+        onPress={handleAddHectarea}
+        activeOpacity={0.7}
+      >
+        <MaterialCommunityIcons name="plus-circle-outline" size={20} color={colors.textSecondary} />
+        <Text style={styles.addHectareaText}>Agregar hectárea</Text>
+        <View style={styles.soonBadge}>
+          <Text style={styles.soonBadgeText}>Próximamente</Text>
+        </View>
+      </TouchableOpacity>
+    </View>
+
+    {/* Asistente IA por hectárea */}
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>🤖 Asistente IA del Cultivo</Text>
+      {hectareas.map((h) => {
+        const analysis = analyzeCrop({
+          tipo: h.tipo || h.name,
+          telemetry: {
+            humedadAire:  h.humedadAire,
+            humedadSuelo: h.humedadSuelo,
+            temperatura:  h.temperatura,
+            ph:           h.ph ?? telemetry.ph,
+          },
+        });
+        return (
+          <CropDiagnosisGroup
+            key={`diag-${h.id}`}
+            cropName={h.name}
+            cropLabel={analysis.cropLabel}
+            diagnoses={analysis.diagnoses}
+            overall={analysis.overall}
+          />
+        );
+      })}
     </View>
 
     {/* Alertas */}
-    <View style={styles.section}>
+    <View
+      style={styles.section}
+      onLayout={(e) => onAlertsLayout && onAlertsLayout(e.nativeEvent.layout.y)}
+    >
       <Text style={styles.sectionTitle}>⚠️ Alertas del Sistema</Text>
       {alerts.length === 0 ? (
         <View style={styles.emptyBox}>
@@ -340,6 +439,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   toggleBtn: { flex: 1 },
+  cameraToggleBtn: {
+    width: 44,
+    borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
   toggleActive: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 6, borderRadius: 10, paddingVertical: 10,
@@ -373,6 +478,22 @@ const styles = StyleSheet.create({
     fontSize: 16, fontWeight: '700', color: colors.textPrimary,
     marginBottom: 12, marginTop: 4,
   },
+
+  // Agregar hectárea (placeholder)
+  addHectareaBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 14, paddingHorizontal: 16,
+    borderRadius: layout.borderRadiusCard,
+    borderWidth: 1.5, borderColor: colors.border, borderStyle: 'dashed',
+    backgroundColor: colors.backgroundMuted,
+    marginTop: 4,
+  },
+  addHectareaText: { fontSize: 14, fontWeight: '600', color: colors.textSecondary },
+  soonBadge: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2,
+  },
+  soonBadgeText: { fontSize: 10, fontWeight: '700', color: '#92400E' },
 
   // Loading / Error / Empty
   loadingBox: { alignItems: 'center', paddingVertical: 60, gap: 12 },
